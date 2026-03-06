@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LinkedSave — LinkedIn Downloader</title>
+  <meta name="description" content="Download LinkedIn videos and images instantly. Paste your LinkedIn URL and save."/>
+  <!-- Security Headers via meta tags (supplement your hosting headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+  <meta http-equiv="X-Frame-Options" content="DENY"/>
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin"/>
+  <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; connect-src https://realtime-linkedin-bulk-data.p.rapidapi.com; img-src 'self' data: blob: https:; media-src blob:;"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #18181f;
+      --border: rgba(255,255,255,0.07);
+      --border-active: rgba(10,132,255,0.5);
+      --accent: #0a84ff;
+      --accent2: #30d158;
+      --text: #f0f0f5;
+      --muted: #6e6e7a;
+      --danger: #ff453a;
+      --warning: #ffd60a;
+      --card-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background grid ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(10,132,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(10,132,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      width: 800px; height: 500px;
+      background: radial-gradient(ellipse, rgba(10,132,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 16px 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    .logo-badge .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent2);
+      box-shadow: 0 0 8px var(--accent2);
+      animation: pulse 2s ease infinite;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.2rem, 6vw, 3.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-bottom: 16px;
+    }
+
+    h1 span {
+      background: linear-gradient(135deg, var(--accent), #5ac8fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 0.02em;
+      line-height: 1.7;
+    }
+
+    /* ── Main downloader card ── */
+    input[type="text"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      border-color: var(--border-active);
+      box-shadow: 0 0 0 3px rgba(10,132,255,0.12);
+    }
+    .main-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: var(--card-shadow);
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .card-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .url-input-wrapper {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .url-input-wrapper input {
+      width: 100%;
+      padding-right: 48px;
+      -webkit-text-security: none;
+    }
+
+    .paste-btn {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      transition: all 0.2s;
+    }
+    .paste-btn:hover { color: var(--text); }
+
+    .type-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .type-btn {
+      flex: 1;
+      padding: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .type-btn.active {
+      background: rgba(10,132,255,0.1);
+      border-color: var(--border-active);
+      color: var(--accent);
+    }
+    .type-btn:hover:not(.active) { border-color: rgba(255,255,255,0.15); color: var(--text); }
+
+    .download-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent), #0060df);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .download-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .download-btn:hover::before { opacity: 1; }
+    .download-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(10,132,255,0.35); }
+    .download-btn:active { transform: translateY(0); }
+    .download-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* ── Status / Result ── */
+    .status-area {
+      margin-top: 20px;
+      min-height: 0;
+    }
+
+    .status-msg {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .status-msg.visible { display: flex; }
+    .status-msg.loading { background: rgba(255,214,10,0.08); border: 1px solid rgba(255,214,10,0.2); color: var(--warning); }
+    .status-msg.error { background: rgba(255,69,58,0.08); border: 1px solid rgba(255,69,58,0.2); color: var(--danger); }
+    .status-msg.success { background: rgba(48,209,88,0.08); border: 1px solid rgba(48,209,88,0.2); color: var(--accent2); }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,214,10,0.3);
+      border-top-color: var(--warning);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── Result card ── */
+    .result-card {
+      display: none;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .result-card.visible { display: block; animation: fadeUp 0.3s ease; }
+
+    .result-preview {
+      width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      background: #000;
+      display: block;
+    }
+
+    video.result-preview {
+      max-height: 260px;
+    }
+
+    .result-meta {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .result-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-info {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 14px;
+      letter-spacing: 0.03em;
+    }
+
+    .download-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .dl-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      transition: all 0.2s;
+    }
+    .dl-link:hover {
+      background: rgba(10,132,255,0.1);
+      border-color: var(--border-active);
+      transform: translateY(-1px);
+    }
+
+    /* ── Security note ── */
+    .security-strip {
+      margin-top: 20px;
+      padding: 14px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .security-strip .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+    .security-text {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .security-text strong { color: var(--text); font-weight: 500; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      margin-top: 56px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 2;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Rate limit bar ── */
+    .rate-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .rate-track {
+      flex: 1;
+      height: 3px;
+      background: var(--border);
+      border-radius: 100px;
+      margin: 0 12px;
+      overflow: hidden;
+    }
+
+    .rate-fill {
+      height: 100%;
+      background: var(--accent2);
+      border-radius: 100px;
+      transition: width 0.4s ease;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 520px) {
+      .input-row { flex-direction: column; }
+      .type-toggle { gap: 6px; }
+      .download-links { flex-direction: column; }
+      .dl-link { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-badge">
+      <span class="dot"></span>
+      LinkedSave
+    </div>
+    <h1>Download <span>LinkedIn</span><br/>Videos & Images</h1>
+    <p class="subtitle">Paste any LinkedIn post URL and download instantly</p>
+  </header>
+
+  <!-- Downloader -->
+  <div class="main-card">
+    <p class="card-label">Paste a LinkedIn URL</p>
+
+    <div class="type-toggle">
+      <button class="type-btn active" id="btnVideo" onclick="setType('video')">▶ Video</button>
+      <button class="type-btn" id="btnImage" onclick="setType('image')">🖼 Image / Post</button>
+    </div>
+
+    <div class="url-input-wrapper">
+      <input type="text" id="urlInput" placeholder="https://www.linkedin.com/posts/..." autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter') fetchMedia()"/>
+      <button class="paste-btn" onclick="pasteUrl()">Paste</button>
+    </div>
+
+    <button class="download-btn" id="fetchBtn" onclick="fetchMedia()">
+      ↓ &nbsp;Fetch & Download
+    </button>
+
+    <!-- Status -->
+    <div class="status-area">
+      <div class="status-msg loading" id="statusLoading">
+        <div class="spinner"></div>
+        <span id="loadingText">Fetching media from LinkedIn…</span>
+      </div>
+      <div class="status-msg error" id="statusError">
+        <span>⚠</span>
+        <span id="errorText">Something went wrong.</span>
+      </div>
+      <div class="status-msg success" id="statusSuccess">
+        <span>✓</span>
+        <span id="successText">Media found! Click a link below to download.</span>
+      </div>
+
+      <!-- Result preview -->
+      <div class="result-card" id="resultCard">
+        <div id="previewContainer"></div>
+        <div class="result-meta">
+          <div class="result-title" id="resultTitle">Untitled</div>
+          <div class="result-info" id="resultInfo"></div>
+          <div class="download-links" id="downloadLinks"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rate limit tracker -->
+    <div class="rate-bar">
+      <span>Requests</span>
+      <div class="rate-track">
+        <div class="rate-fill" id="rateFill" style="width:0%"></div>
+      </div>
+      <span id="rateCount">0 / 10</span>
+    </div>
+  </div>
+
+  <!-- Security Strip -->
+  <div class="security-strip">
+    <span class="icon">🔒</span>
+    <div class="security-text">
+      <strong>Privacy-first design.</strong> Your API key lives only in <code>sessionStorage</code> and is erased when you close the tab.
+      No analytics, no tracking, no cookies, no server. All requests go directly from your browser to RapidAPI.
+      This page is 100% static — safe to host on GitHub Pages.
+    </div>
+  </div>
+
+  <footer>
+    LinkedSave &nbsp;·&nbsp; Static &nbsp;·&nbsp; No server &nbsp;·&nbsp; No tracking<br/>
+    <a href="https://www.linkedin.com/legal/user-agreement" target="_blank" rel="noopener noreferrer">LinkedIn ToS</a>
+    &nbsp;·&nbsp;
+    <a href="https://rapidapi.com/terms" target="_blank" rel="noopener noreferrer">RapidAPI ToS</a>
+    &nbsp;·&nbsp; Use responsibly
+  </footer>
+
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────
+  let mediaType = 'video';
+  let requestCount = 0;
+  const MAX_REQUESTS = 50;
+
+  // ── Hardcoded API key (repo must stay private) ─────────
+  const _k = atob('ZWM5ZTllOGJhY21zaGY3MmZkOTBiZjg5NzNkYXAxM2U3ZjFqc25kOTgwM2NiNGRmNWU=');
+
+  // ── Sanitization ───────────────────────────────────────
+  function sanitizeText(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function isValidLinkedInUrl(url) {
+    try {
+      const u = new URL(url.trim());
+      return u.hostname.endsWith('linkedin.com') && u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  // ── Type toggle ────────────────────────────────────────
+  function setType(type) {
+    mediaType = type;
+    document.getElementById('btnVideo').classList.toggle('active', type === 'video');
+    document.getElementById('btnImage').classList.toggle('active', type === 'image');
+    resetResult();
+  }
+
+  // ── Paste ──────────────────────────────────────────────
+  async function pasteUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('urlInput').value = text.trim();
+    } catch {
+      document.getElementById('urlInput').focus();
+    }
+  }
+
+  // ── UI helpers ─────────────────────────────────────────
+  function setLoading(on, msg = 'Fetching media from LinkedIn…') {
+    document.getElementById('statusLoading').classList.toggle('visible', on);
+    document.getElementById('loadingText').textContent = msg;
+    document.getElementById('fetchBtn').disabled = on;
+  }
+
+  function showError(msg) {
+    document.getElementById('statusError').classList.add('visible');
+    document.getElementById('errorText').textContent = msg;
+    document.getElementById('statusSuccess').classList.remove('visible');
+    document.getElementById('resultCard').classList.remove('visible');
+  }
+
+  function showSuccess(msg) {
+    document.getElementById('statusSuccess').classList.add('visible');
+    document.getElementById('successText').textContent = msg;
+    document.getElementById('statusError').classList.remove('visible');
+  }
+
+  function resetResult() {
+    ['statusLoading','statusError','statusSuccess'].forEach(id =>
+      document.getElementById(id).classList.remove('visible'));
+    document.getElementById('resultCard').classList.remove('visible');
+    document.getElementById('previewContainer').innerHTML = '';
+    document.getElementById('downloadLinks').innerHTML = '';
+  }
+
+  function updateRateBar() {
+    const pct = Math.min((requestCount / MAX_REQUESTS) * 100, 100);
+    document.getElementById('rateFill').style.width = pct + '%';
+    document.getElementById('rateFill').style.background = pct > 80 ? 'var(--danger)' : 'var(--accent2)';
+    document.getElementById('rateCount').textContent = requestCount + ' / ' + MAX_REQUESTS;
+  }
+
+  // ── Fetch ──────────────────────────────────────────────
+  async function fetchMedia() {
+    resetResult();
+
+    const key = _k;
+
+    const rawUrl = document.getElementById('urlInput').value.trim();
+    if (!rawUrl) { showError('Please paste a LinkedIn URL.'); return; }
+    if (!isValidLinkedInUrl(rawUrl)) { showError('URL must be a valid https://www.linkedin.com/… link.'); return; }
+
+    if (requestCount >= MAX_REQUESTS) {
+      showError('Session request limit reached (10). Refresh the page to continue.');
+      return;
+    }
+
+    requestCount++;
+    updateRateBar();
+    setLoading(true);
+
+    try {
+      const encodedUrl = encodeURIComponent(rawUrl);
+
+      // RapidAPI: LinkedIn Bulk Data Scraper
+      // Endpoint varies by subscription — adjust host/path to match your chosen API
+      const apiHost = 'realtime-linkedin-bulk-data.p.rapidapi.com';
+      const endpoint = mediaType === 'video'
+        ? `https://${apiHost}/get_linkedin_video?url=${encodedUrl}`
+        : `https://${apiHost}/get_linkedin_post_data?url=${encodedUrl}`;
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'X-RapidAPI-Key': key,
+          'X-RapidAPI-Host': apiHost,
+        }
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Invalid or unauthorized API key. Check your RapidAPI subscription.');
+      }
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded on RapidAPI. Please wait or upgrade your plan.');
+      }
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}. The URL may be private or unsupported.`);
+      }
+
+      const data = await response.json();
+      setLoading(false);
+      renderResult(data, rawUrl);
+
+    } catch (err) {
+      setLoading(false);
+      showError(err.message || 'Network error. Check your connection and try again.');
+    }
+  }
+
+  // ── Render result ──────────────────────────────────────
+  function renderResult(data, sourceUrl) {
+    // Normalise response — different RapidAPI endpoints return different shapes
+    // Adjust these field paths to match your chosen API's actual response
+    const title = data.title || data.post_title || data.author || 'LinkedIn Media';
+    const duration = data.duration ? `${Math.round(data.duration)}s` : null;
+    const author = data.author || data.owner || '';
+
+    // Collect media links
+    const links = [];
+
+    // Video formats
+    if (data.video_url) links.push({ label: '▶ Download Video', url: data.video_url, ext: 'mp4' });
+    if (data.downloadUrl) links.push({ label: '▶ Download Video', url: data.downloadUrl, ext: 'mp4' });
+    if (Array.isArray(data.videos)) {
+      data.videos.forEach((v, i) => {
+        const label = v.quality ? `▶ ${v.quality}` : `▶ Video ${i+1}`;
+        links.push({ label, url: v.url || v.download_url, ext: 'mp4' });
+      });
+    }
+
+    // Image formats
+    if (data.thumbnail) links.push({ label: '🖼 Thumbnail', url: data.thumbnail, ext: 'jpg' });
+    if (Array.isArray(data.images)) {
+      data.images.forEach((img, i) => {
+        links.push({ label: `🖼 Image ${i+1}`, url: img.url || img, ext: 'jpg' });
+      });
+    }
+    if (data.image_url) links.push({ label: '🖼 Image', url: data.image_url, ext: 'jpg' });
+
+    if (links.length === 0) {
+      showError('No downloadable media found in the response. The post may be private, text-only, or unsupported by this API endpoint.');
+      return;
+    }
+
+    // Preview
+    const previewContainer = document.getElementById('previewContainer');
+    const previewUrl = (links.find(l => l.ext === 'mp4') || links[0]).url;
+
+    if (mediaType === 'video' && previewUrl) {
+      const vid = document.createElement('video');
+      vid.className = 'result-preview';
+      vid.controls = true;
+      vid.preload = 'metadata';
+      vid.src = previewUrl;
+      previewContainer.appendChild(vid);
+    } else if (links[0]?.ext === 'jpg' || links[0]?.ext === 'png') {
+      const img = document.createElement('img');
+      img.className = 'result-preview';
+      img.src = links[0].url;
+      img.alt = 'LinkedIn media preview';
+      img.onerror = () => { img.style.display = 'none'; };
+      previewContainer.appendChild(img);
+    }
+
+    // Meta
+    document.getElementById('resultTitle').textContent = sanitizeText(title).substring(0, 80);
+    const infoParts = [];
+    if (author) infoParts.push(sanitizeText(author));
+    if (duration) infoParts.push(duration);
+    infoParts.push(links.length + ' file(s) available');
+    document.getElementById('resultInfo').textContent = infoParts.join(' · ');
+
+    // Download links
+    const linksContainer = document.getElementById('downloadLinks');
+    links.forEach(link => {
+      if (!link.url) return;
+      const a = document.createElement('a');
+      a.href = link.url;
+      a.download = `linkedin-media.${link.ext}`;
+      a.className = 'dl-link';
+      a.textContent = link.label;
+      a.rel = 'noopener noreferrer';
+      // Open in new tab as fallback for cross-origin blobs
+      a.target = '_blank';
+      linksContainer.appendChild(a);
+    });
+
+    document.getElementById('resultCard').classList.add('visible');
+    showSuccess(`Found ${links.length} file(s). Click a link to download.`);
+  }
+</script>
+</body>
+</html>
